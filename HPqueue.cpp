@@ -36,9 +36,9 @@ void scan() {
 	for (auto it = rlist.begin(); it != rlist.end();) {
 		bool find = false;
 		for (int t = 0; t < num_thread; ++t) {
-			if (HPfirst[t]->load(memory_order_acquire) == (*it)
-				|| HPnext[t]->load(memory_order_acquire) == (*it)
-				|| HPlast[t]->load(memory_order_acquire) == (*it)) {
+			if (HPfirst[t]->load(memory_order_seq_cst) == (*it)
+				|| HPnext[t]->load(memory_order_seq_cst) == (*it)
+				|| HPlast[t]->load(memory_order_seq_cst) == (*it)) {
 				find = true;
 				break;
 			}
@@ -94,7 +94,7 @@ public:
 			NODE* volatile last;
 			do {
 				last = tail;
-				HPlast[tid]->store(last, memory_order_release);
+				HPlast[tid]->store(last, memory_order_seq_cst);
 			} while (last != tail);
 			NODE* next = last->next;
 			if (last != tail) continue;
@@ -104,7 +104,7 @@ public:
 			}
 			if (false == CAS(&last->next, nullptr, e)) continue;
 			CAS(&tail, last, e);
-			HPlast[tid]->store(nullptr, memory_order_release);
+			HPlast[tid]->store(nullptr, memory_order_seq_cst);
 			return;
 		}
 	}
@@ -114,19 +114,19 @@ public:
 			NODE* volatile first;
 			do {
 				first = head;
-				HPfirst[tid]->store(first, memory_order_release);
+				HPfirst[tid]->store(first, memory_order_seq_cst);
 			} while (first != head);
 
-			// queue´Â Áß°£¿¡ insert µÇ´Â °æ¿ì X
-			// ¼ø¼­ ¹Ù²î´Â °æ¿ì X
-			// head, tail ¸¸ °è¼Ó º¯ÇÑ´Ù
+			// queueï¿½ï¿½ ï¿½ß°ï¿½ï¿½ï¿½ insert ï¿½Ç´ï¿½ ï¿½ï¿½ï¿½ X
+			// ï¿½ï¿½ï¿½ï¿½ ï¿½Ù²ï¿½ï¿½ ï¿½ï¿½ï¿½ X
+			// head, tail ï¿½ï¿½ ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½Ñ´ï¿½
 			NODE* next = first->next;
-			HPnext[tid]->store(next, memory_order_release);
+			HPnext[tid]->store(next, memory_order_seq_cst);
 
 			NODE* last;
 			do {
 				last = tail;
-				HPlast[tid]->store(last, memory_order_release);
+				HPlast[tid]->store(last, memory_order_seq_cst);
 			} while (last != tail);
 			NODE* lastnext = last->next;
 			if (first != head) continue;
@@ -134,9 +134,9 @@ public:
 				if (lastnext == nullptr) {
 					cout << "EMPTY!!!\n";
 					this_thread::sleep_for(1ms);
-					HPfirst[tid]->store(nullptr, memory_order_release);
-					HPnext[tid]->store(nullptr, memory_order_release);
-					HPlast[tid]->store(nullptr, memory_order_release);
+					HPfirst[tid]->store(nullptr, memory_order_seq_cst);
+					HPnext[tid]->store(nullptr, memory_order_seq_cst);
+					HPlast[tid]->store(nullptr, memory_order_seq_cst);
 					return -1;
 				}
 				else
@@ -151,9 +151,9 @@ public:
 			first->next = nullptr;
 			retire(first);
 			//delete first;
-			HPfirst[tid]->store(nullptr, memory_order_release);
-			HPnext[tid]->store(nullptr, memory_order_release);
-			HPlast[tid]->store(nullptr, memory_order_release);
+			HPfirst[tid]->store(nullptr, memory_order_seq_cst);
+			HPnext[tid]->store(nullptr, memory_order_seq_cst);
+			HPlast[tid]->store(nullptr, memory_order_seq_cst);
 			return result;
 		}
 	}

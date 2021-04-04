@@ -127,6 +127,7 @@ public:
 	int key;
 	LFSKNode* next[MAX_LEVEL];
 	int topLevel;
+    atomic_uint32_t refCnt{ 0 };
 
 	// ���ʳ�忡 ���� ������
 	LFSKNode() {
@@ -134,6 +135,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = MAX_LEVEL;
+        refCnt.store(topLevel + 1, memory_order_seq_cst);
 	}
 	LFSKNode(int myKey) {
 		key = myKey;
@@ -141,6 +143,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = MAX_LEVEL;
+        refCnt.store(topLevel + 1, memory_order_seq_cst);
 	}
 
 	// �Ϲݳ�忡 ���� ������
@@ -150,6 +153,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = height;
+        refCnt.store(height + 1, memory_order_seq_cst);
 	}
 
 	void InitNode() {
@@ -158,6 +162,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = MAX_LEVEL;
+        refCnt.store(topLevel + 1, memory_order_seq_cst);
 	}
 
 	void InitNode(int x, int top) {
@@ -166,6 +171,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = top;
+        refCnt.store(topLevel + 1, memory_order_seq_cst);
 	}
 
 	bool CompareAndSet(int level, LFSKNode* old_node, LFSKNode* next_node, bool old_mark, bool next_mark) {
@@ -228,7 +234,8 @@ public:
 					while (Marked(succ)) { 
 						snip = pred->CompareAndSet(level, curr, succ, false, false);
 						if (!snip) goto retry;
-						if (level == bottomLevel) retire(curr);
+						//if (level == bottomLevel) retire(curr);
+                        if (curr->refCnt.fetch_add(-1, memory_order_seq_cst) <= 1) retire(curr);
 						curr = GetReference(pred->next[level]);
 						succ = curr->next[level];
 					}

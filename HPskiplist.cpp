@@ -70,7 +70,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = MAX_LEVEL - 1;
-		refCnt.store(topLevel + 1, memory_order_relaxed);
+		refCnt.store(topLevel + 1, memory_order_seq_cst);
 	}
 	LFSKNode(int myKey) {
 		key = myKey;
@@ -78,7 +78,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = MAX_LEVEL - 1;
-		refCnt.store(topLevel + 1, memory_order_relaxed);
+		refCnt.store(topLevel + 1, memory_order_seq_cst);
 	}
 
 	// �Ϲݳ�忡 ���� ������
@@ -88,7 +88,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = height;
-		refCnt.store(topLevel + 1, memory_order_relaxed);
+		refCnt.store(height + 1, memory_order_seq_cst);
 	}
 
 	void InitNode() {
@@ -97,7 +97,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = MAX_LEVEL;
-		refCnt.store(topLevel + 1, memory_order_relaxed);
+		refCnt.store(topLevel + 1, memory_order_seq_cst);
 	}
 
 	void InitNode(int x, int top) {
@@ -106,7 +106,7 @@ public:
 			next[i] = AtomicMarkableReference(NULL, false);
 		}
 		topLevel = top;
-		refCnt.store(topLevel + 1, memory_order_relaxed);
+		refCnt.store(topLevel + 1, memory_order_seq_cst);
 	}
 
 	bool CompareAndSet(int level, LFSKNode* old_node, LFSKNode* next_node, bool old_mark, bool next_mark) {
@@ -138,7 +138,7 @@ void scan() {
 		for (int t = 0; t < num_threads && find == false; ++t) {
 			for (int l = 0; l < MAX_LEVEL && find == false; ++l) {
 				for (int h = 0; h < MAX_HP; ++h) {
-					if (HPpool[t][l][h]->load(memory_order_acquire) == (*it)) {
+					if (HPpool[t][l][h]->load(memory_order_seq_cst) == (*it)) {
 						find = true;
 						break;
 					}
@@ -207,7 +207,7 @@ public:
 				int cur_idx = 0;
 				while (true) {
 					curr = GetReference(pred->next[level]);
-					HPpool[tid][level][cur_idx]->store(curr, memory_order_release);
+					HPpool[tid][level][cur_idx]->store(curr, memory_order_seq_cst);
 					bool removed;
 					LFSKNode* ptr = Get(pred->next[level], &removed);
 					if (removed == true) goto retry;
@@ -220,10 +220,10 @@ public:
 						snip = pred->CompareAndSet(level, curr, succ, false, false);
 						if (!snip) goto retry;
 						//if (level == bottomLevel) retire(curr);
-						if (curr->refCnt.fetch_add(-1, memory_order_relaxed) <= 1) retire(curr);
+						if (curr->refCnt.fetch_add(-1, memory_order_seq_cst) <= 1) retire(curr);
 						while (true) {
 							curr = GetReference(pred->next[level]);
-							HPpool[tid][level][cur_idx]->store(curr, memory_order_release);
+							HPpool[tid][level][cur_idx]->store(curr, memory_order_seq_cst);
 							bool removed;
 							LFSKNode* ptr = Get(pred->next[level], &removed);
 							//if (ptr == nullptr || (unsigned int)ptr == 0xdddddddc) {
@@ -236,12 +236,12 @@ public:
 						succ = curr->next[level];
 					}
 					if (curr->key < x) {
-						//HPprev[tid][level]->store(curr, memory_order_release);
+						//HPprev[tid][level]->store(curr, memory_order_seq_cst);
 						pred = curr;
 						cur_idx = (++cur_idx) % MAX_HP;
 						while (true) {
 							curr = GetReference(pred->next[level]);
-							HPpool[tid][level][cur_idx]->store(curr, memory_order_release);
+							HPpool[tid][level][cur_idx]->store(curr, memory_order_seq_cst);
 							bool removed;
 							LFSKNode* ptr = Get(pred->next[level], &removed);
 							//if (ptr == nullptr || (unsigned int)ptr == 0xdddddddc) {
@@ -283,7 +283,7 @@ public:
 				delete newNode;
 				for (int l = 0; l < MAX_LEVEL; ++l) {
 					for (int h = 0; h < MAX_HP; ++h) {
-						HPpool[tid][l][h]->store(nullptr, memory_order_release);
+						HPpool[tid][l][h]->store(nullptr, memory_order_seq_cst);
 					}
 				}
 				return false;
@@ -326,7 +326,7 @@ public:
 
 				for (int l = 0; l < MAX_LEVEL; ++l) {
 					for (int h = 0; h < MAX_HP; ++h) {
-						HPpool[tid][l][h]->store(nullptr, memory_order_release);
+						HPpool[tid][l][h]->store(nullptr, memory_order_seq_cst);
 					}
 				}
 				//��� ������ ����Ǿ����� true��ȯ
@@ -348,7 +348,7 @@ public:
 				//�������� �����Ϸ��� ��尡 ���ų�, ¦�� �´� Ű�� ���� ��尡 ǥ�� �Ǿ� �ִٸ� false��ȯ
 				for (int l = 0; l < MAX_LEVEL; ++l) {
 					for (int h = 0; h < MAX_HP; ++h) {
-						HPpool[tid][l][h]->store(nullptr, memory_order_release);
+						HPpool[tid][l][h]->store(nullptr, memory_order_seq_cst);
 					}
 				}
 				return false;
@@ -379,7 +379,7 @@ public:
 						Find(x, preds, succs);
 						for (int l = 0; l < MAX_LEVEL; ++l) {
 							for (int h = 0; h < MAX_HP; ++h) {
-								HPpool[tid][l][h]->store(nullptr, memory_order_release);
+								HPpool[tid][l][h]->store(nullptr, memory_order_seq_cst);
 							}
 						}
 						return true;
@@ -387,7 +387,7 @@ public:
 					else if (Marked(succ)) {
 						for (int l = 0; l < MAX_LEVEL; ++l) {
 							for (int h = 0; h < MAX_HP; ++h) {
-								HPpool[tid][l][h]->store(nullptr, memory_order_release);
+								HPpool[tid][l][h]->store(nullptr, memory_order_seq_cst);
 							}
 						}
 						return false;
@@ -404,7 +404,7 @@ public:
 		bool ret = Find(x, preds, succs);
 		for (int l = 0; l < MAX_LEVEL; ++l) {
 			for (int h = 0; h < MAX_HP; ++h) {
-				HPpool[tid][l][h]->store(nullptr, memory_order_release);
+				HPpool[tid][l][h]->store(nullptr, memory_order_seq_cst);
 			}
 		}
 		return ret;

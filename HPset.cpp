@@ -85,8 +85,8 @@ void scan() {
 	for (auto it = rlist.begin(); it != rlist.end();) {
 		bool find = false;
 		for (int t = 0; t < num_threads; ++t) {
-			if (HPprev[t]->load(memory_order_acquire) == (*it)
-				|| HPcurr[t]->load(memory_order_acquire) == (*it)) {
+			if (HPprev[t]->load(memory_order_seq_cst) == (*it)
+				|| HPcurr[t]->load(memory_order_seq_cst) == (*it)) {
 				find = true;
 				break;
 			}
@@ -147,7 +147,7 @@ public:
 		LFNODE* cu;
 		do {
 			cu = pr->GetNext();
-			HPcurr[tid]->store(cu, memory_order_release);
+			HPcurr[tid]->store(cu, memory_order_seq_cst);
 		} while (pr->GetNext() != cu);
 		
 		while (true) {
@@ -160,7 +160,7 @@ public:
 				while (true)
 				{
 					cu = pr->GetNext();
-					HPcurr[tid]->store(cu, memory_order_release);
+					HPcurr[tid]->store(cu, memory_order_seq_cst);
 					bool marked;
 					LFNODE* ptr = pr->GetNextWithMark(&marked);
 					if (marked == true) goto retry;
@@ -172,12 +172,12 @@ public:
 				*pred = pr; *curr = cu;
 				return;
 			}
-			HPprev[tid]->store(cu, memory_order_release);
+			HPprev[tid]->store(cu, memory_order_seq_cst);
 			pr = cu;
 			while (true)
 			{
 				cu = pr->GetNext();
-				HPcurr[tid]->store(cu, memory_order_release);
+				HPcurr[tid]->store(cu, memory_order_seq_cst);
 				bool marked;
 				LFNODE* ptr = pr->GetNextWithMark(&marked);
 				if (marked == true) goto retry;
@@ -194,16 +194,16 @@ public:
 
 			if (curr->key == x) {
 				delete e;
-				HPprev[tid]->store(nullptr, memory_order_release);
-				HPcurr[tid]->store(nullptr, memory_order_release);
+				HPprev[tid]->store(nullptr, memory_order_seq_cst);
+				HPcurr[tid]->store(nullptr, memory_order_seq_cst);
 				return false;
 			}
 			else {
 				e->SetNext(curr);
 				if (false == pred->CAS(curr, e, false, false))
 					continue;
-				HPprev[tid]->store(nullptr, memory_order_release);
-				HPcurr[tid]->store(nullptr, memory_order_release);
+				HPprev[tid]->store(nullptr, memory_order_seq_cst);
+				HPcurr[tid]->store(nullptr, memory_order_seq_cst);
 				return true;
 			}
 		}
@@ -215,8 +215,8 @@ public:
 			Find(x, &pred, &curr);
 
 			if (curr->key != x) {
-				HPprev[tid]->store(nullptr, memory_order_release);
-				HPcurr[tid]->store(nullptr, memory_order_release);
+				HPprev[tid]->store(nullptr, memory_order_seq_cst);
+				HPcurr[tid]->store(nullptr, memory_order_seq_cst);
 				return false;
 			}
 			else {
@@ -226,8 +226,8 @@ public:
 					retire(curr);
 					// delete curr;
 				}
-				HPprev[tid]->store(nullptr, memory_order_release);
-				HPcurr[tid]->store(nullptr, memory_order_release);
+				HPprev[tid]->store(nullptr, memory_order_seq_cst);
+				HPcurr[tid]->store(nullptr, memory_order_seq_cst);
 				return true;
 			}
 		}
@@ -238,31 +238,31 @@ public:
 		LFNODE* curr;
 		do {
 			curr = prev->GetNext();
-			HPcurr[tid]->store(curr, memory_order_release);
+			HPcurr[tid]->store(curr, memory_order_seq_cst);
 		} while (prev->GetNext() != curr);
 
 		while (curr->key < x) {
 			prev = curr;
-			HPprev[tid]->store(curr, memory_order_release);
+			HPprev[tid]->store(curr, memory_order_seq_cst);
 			while (true)
 			{
 				curr = prev->GetNext();
-				HPcurr[tid]->store(curr, memory_order_release);
+				HPcurr[tid]->store(curr, memory_order_seq_cst);
 				bool marked;
 				LFNODE* ptr = prev->GetNextWithMark(&marked);
 				if (marked == true) {
 					Find(x, &prev, &curr);
 					bool ret = (curr->key == x && (false == curr->IsMarked()));
-					HPprev[tid]->store(nullptr, memory_order_release);
-					HPcurr[tid]->store(nullptr, memory_order_release);
+					HPprev[tid]->store(nullptr, memory_order_seq_cst);
+					HPcurr[tid]->store(nullptr, memory_order_seq_cst);
 					return ret;
 				}
 				if (ptr == curr) break;
 			}
 		}
 		bool ret = (false == curr->IsMarked()) && (x == curr->key);
-		HPprev[tid]->store(nullptr, memory_order_release);
-		HPcurr[tid]->store(nullptr, memory_order_release);
+		HPprev[tid]->store(nullptr, memory_order_seq_cst);
+		HPcurr[tid]->store(nullptr, memory_order_seq_cst);
 		return ret;
 	}
 };
